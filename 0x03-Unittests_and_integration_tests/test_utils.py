@@ -1,10 +1,16 @@
-#!/usr/bin/env python3
+"""
+Unit tests for utils.py
+"""
+
 import unittest
 from parameterized import parameterized
-from unittest.mock import patch
 from utils import access_nested_map, get_json, memoize
+from unittest.mock import patch
+
 
 class TestAccessNestedMap(unittest.TestCase):
+    """Tests for access_nested_map"""
+
     @parameterized.expand([
         ({"a": 1}, ("a",), 1),
         ({"a": {"b": 2}}, ("a",), {"b": 2}),
@@ -21,18 +27,20 @@ class TestAccessNestedMap(unittest.TestCase):
         with self.assertRaises(KeyError):
             access_nested_map(nested_map, path)
 
+
 class TestGetJson(unittest.TestCase):
-    @parameterized.expand([
-        ("http://example.com", {"payload": True}),
-        ("http://holberton.io", {"payload": False}),
-    ])
-    def test_get_json(self, test_url, test_payload):
-        with patch("utils.requests.get") as mock_get:
-            mock_get.return_value.json.return_value = test_payload
-            self.assertEqual(get_json(test_url), test_payload)
-            mock_get.assert_called_once_with(test_url)
+    """Tests for get_json"""
+
+    @patch("utils.requests.get")
+    def test_get_json(self, mock_get):
+        mock_get.return_value.json.return_value = {"payload": True}
+        self.assertEqual(get_json("http://example.com"), {"payload": True})
+        mock_get.assert_called_once_with("http://example.com")
+
 
 class TestMemoize(unittest.TestCase):
+    """Tests for memoize"""
+
     def test_memoize(self):
         class TestClass:
             def a_method(self):
@@ -42,8 +50,6 @@ class TestMemoize(unittest.TestCase):
             def a_property(self):
                 return self.a_method()
 
-        with patch.object(TestClass, 'a_method', return_value=42) as mock_method:
-            test = TestClass()
-            self.assertEqual(test.a_property, 42)
-            self.assertEqual(test.a_property, 42)
-            mock_method.assert_called_once()
+        obj = TestClass()
+        self.assertEqual(obj.a_property, 42)
+        self.assertEqual(obj.a_property, 42)

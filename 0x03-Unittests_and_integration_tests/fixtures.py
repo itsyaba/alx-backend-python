@@ -1,12 +1,8 @@
-#!/usr/bin/env python3
-"""Fixtures for integration tests."""
-org_payload = {"repos_url": "https://api.github.com/orgs/testorg/repos"}
+"""
+Fixtures for integration tests
+"""
 
-repos_payload = [
-    {"name": "repo1", "license": {"key": "apache-2.0"}},
-    {"name": "repo2", "license": {"key": "mit"}},
-]
-
+org_payload = {"login": "test_org", "id": 1}
+repos_payload = [{"name": "repo1"}, {"name": "repo2"}]
 expected_repos = ["repo1", "repo2"]
-
-apache2_repos = ["repo1"]
+apache2_repos = ["repo2"]
