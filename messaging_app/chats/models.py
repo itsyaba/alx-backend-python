@@ -1,65 +1,75 @@
-#!/usr/bin/env python3
-"""Models for chats app: custom User, Conversation and Message."""
-import uuid
 from django.db import models
-from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
+import uuid
+from django.utils import timezone
+from django.contrib.auth.models import AbstractUser, Group, Permission
 
-class UserManager(BaseUserManager):
-    def create_user(self, email, password=None, **extra_fields):
-        if not email:
-            raise ValueError('Users must have an email address')
-        email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
+# Create your models here.
 
-    def create_superuser(self, email, password=None, **extra_fields):
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
-        return self.create_user(email, password, **extra_fields)
 
-class User(AbstractBaseUser, PermissionsMixin):
-    """Custom user model identified by email with additional fields."""
-    user_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    first_name = models.CharField(max_length=150)
-    last_name = models.CharField(max_length=150)
-    email = models.EmailField(unique=True)
-    password_hash = models.CharField(max_length=255)
-    phone_number = models.CharField(max_length=30, null=True, blank=True)
-    ROLE_CHOICES = (('guest', 'Guest'), ('host', 'Host'), ('admin', 'Admin'))
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='guest')
-    created_at = models.DateTimeField(auto_now_add=True)
+# -------------------------------
+# User Model
+# -------------------------------
+class User(AbstractUser):
+    user_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
+    first_name = models.CharField(max_length=50, null=False)
+    last_name = models.CharField(max_length=50, null=False)
+    email = models.EmailField(unique=True, null=False)
+    password_hash = models.CharField(max_length=255, null=False)
+    phone_number = models.CharField(max_length=20, null=True, blank=True)
 
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
+    ROLE_CHOICES = [
+        ('guest', 'Guest'),
+        ('host', 'Host'),
+        ('admin', 'Admin'),
+    ]
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='guest', null=False)
+    created_at = models.DateTimeField(default=timezone.now)
 
-    objects = UserManager()
+    # Fix reverse accessor conflicts
+    groups = models.ManyToManyField(
+        Group,
+        related_name='chats_user_set',
+        blank=True,
+        help_text='The groups this user belongs to.',
+        verbose_name='groups'
+    )
+    user_permissions = models.ManyToManyField(
+        Permission,
+        related_name='chats_user_permissions_set',
+        blank=True,
+        help_text='Specific permissions for this user.',
+        verbose_name='user permissions'
+    )
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['first_name', 'last_name']
+    REQUIRED_FIELDS = ['username']
 
-    def __str__(self) -> str:
-        return self.email
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} ({self.email})"
 
 
+# -------------------------------
+# Conversation Model
+# -------------------------------
 class Conversation(models.Model):
-    """Conversation tracks participants and creation time."""
     conversation_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     participants = models.ManyToManyField(User, related_name='conversations')
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
 
-    def __str__(self) -> str:
-        return str(self.conversation_id)
+    def __str__(self):
+        participants_names = ", ".join([str(p) for p in self.participants.all()])
+        return f"Conversation {self.conversation_id} between {participants_names}"
 
 
+# -------------------------------
+# Message Model
+# -------------------------------
 class Message(models.Model):
-    """Message belongs to a conversation and references a sender."""
     message_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    sender = models.ForeignKey(User, related_name='sent_messages', on_delete=models.CASCADE)
-    conversation = models.ForeignKey(Conversation, related_name='messages', on_delete=models.CASCADE)
-    message_body = models.TextField()
-    sent_at = models.DateTimeField(auto_now_add=True)
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
+    message_body = models.TextField(null=False)
+    sent_at = models.DateTimeField(default=timezone.now)
 
-    def __str__(self) -> str:
-        return f"Message {self.message_id} from {self.sender}"
+    def __str__(self):
+        return f"Message from {self.sender.email} at {self.sent_at}"
